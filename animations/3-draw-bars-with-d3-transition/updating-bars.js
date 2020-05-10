@@ -131,7 +131,8 @@ async function drawBars() {
       .transition(updateTransition)
       .attr("x", (d) => xScale(d.x0) + (xScale(d.x1) - xScale(d.x0)) / 2)
       .attr("y", (d) => yScale(yAccessor(d)) - 5)
-      .text((d) => yAccessor(d) || "");
+      .text((d) => yAccessor(d) || "")
+      .style("text-anchor", "center");
 
     const mean = d3.mean(dataset, metricAccessor);
 
