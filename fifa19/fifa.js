@@ -1,10 +1,7 @@
-async function mainHistogram() {
-  let metric = "Overall";
-
+async function mainChart(metric = "Overall") {
   // access data
   const dataset = await d3.csv("../data/fifa19/data.csv");
-  const metricAccessor = (d) => parseFloat(d[metric]) || 0;
-  const yAccessor = (d) => d.length;
+  console.table(dataset[1]);
 
   // assign chart dimensions
   const width = 800;
@@ -23,8 +20,6 @@ async function mainHistogram() {
   dimensions.plotHeight =
     dimensions.height - dimensions.margin.top - dimensions.margin.bottom;
 
-  console.log(metric);
-
   // draw chart and plot area
   const chart = d3
     .select("#main")
@@ -39,91 +34,156 @@ async function mainHistogram() {
       `translate(${dimensions.margin.left}px, ${dimensions.margin.top}px)`
     );
 
-  // assign scales
-  const xScale = d3
-    .scaleLinear()
-    .domain(d3.extent(dataset, metricAccessor))
-    .range([0, dimensions.plotWidth])
-    .nice();
+  plot.append("g").attr("class", "histogram");
+  plot.append("line").attr("class", "meanLine");
+  plot.append("text").attr("class", "meanLabel");
 
-  const binsGenerator = d3
-    .histogram()
-    .domain(xScale.domain())
-    .value(metricAccessor)
-    .thresholds(12);
+  const drawHistogram = (metric = "Overall") => {
+    const metricAccessor = (d) => parseFloat(d[metric]) || 0;
+    const yAccessor = (d) => d.length;
 
-  bins = binsGenerator(dataset);
+    // assign scales
+    const xScale = d3
+      .scaleLinear()
+      .domain(d3.extent(dataset, metricAccessor))
+      .range([0, dimensions.plotWidth])
+      .nice();
 
-  const yScale = d3
-    .scaleLinear()
-    .domain([0, d3.max(bins, yAccessor)])
-    .range([dimensions.plotHeight, 0]);
+    const binsGenerator = d3
+      .histogram()
+      .domain(xScale.domain())
+      .value(metricAccessor)
+      .thresholds(12);
 
-  const barPadding = 1;
+    bins = binsGenerator(dataset);
 
-  // plot data
-  const histogram = plot.append("g");
-  const binGroups = histogram.selectAll("g").data(bins).enter().append("g");
-  const bars = binGroups
-    .append("rect")
-    .attr("x", (d) => xScale(d.x0) + barPadding / 2)
-    .attr("y", (d) => yScale(yAccessor(d)))
-    .attr("width", (d) => d3.max([0, xScale(d.x1) - xScale(d.x0) - barPadding]))
-    .attr("height", (d) => dimensions.plotHeight - yScale(yAccessor(d)))
-    .attr("fill", "#0366d6");
-  const barLabels = binGroups
-    .append("text")
-    .attr("x", (d) => xScale(d.x0) + (xScale(d.x1) - xScale(d.x0)) / 2)
-    .attr("y", (d) => yScale(yAccessor(d)) - 5)
-    .text((d) => yAccessor(d) || "")
-    .style("text-anchor", "middle")
-    .style("font-size", "0.7rem");
+    const yScale = d3
+      .scaleLinear()
+      .domain([0, d3.max(bins, yAccessor)])
+      .range([dimensions.plotHeight, 0]);
 
-  const mean = d3.mean(dataset, metricAccessor);
-  console.log(mean);
-  const meanLine = plot
-    .append("line")
-    .attr("x1", xScale(mean))
-    .attr("x2", xScale(mean))
-    .attr("y1", -20)
-    .attr("y2", dimensions.plotHeight)
-    .attr("stroke", "#24292e")
-    .attr("stroke-dasharray", "5,5");
+    const barPadding = 1;
 
-  const meanLabel = plot
-    .append("text")
-    .attr("x", xScale(mean))
-    .attr("y", -25)
-    .text(`Avg (${mean.toFixed(0)})`)
-    .attr("text-anchor", "middle")
-    .style("font-weight", "600");
+    const exitTransition = d3.transition().duration(150);
+    const updateTransition = exitTransition.transition().duration(300);
 
-  // plot axis
-  plot
-    .append("g")
-    .attr("class", "x-axis")
-    .style("transform", `translateY(${dimensions.plotHeight}px)`)
-    .append("text")
-    .attr("class", "x-axis-label")
-    .attr("x", dimensions.plotWidth / 2)
-    .attr("y", dimensions.margin.bottom - 10)
-    .attr("fill", "#24292e");
+    // plot data
+    let binGroups = plot.select(".histogram").selectAll(".bin").data(bins);
 
-  const xAxisGenerator = d3.axisBottom().scale(xScale);
-  const xAxis = plot.select(".x-axis").call(xAxisGenerator);
-  const xAxisLabel = xAxis
-    .select(".x-axis-label")
-    .text(metric)
-    .style("font-size", "1.2rem");
+    const oldBinGroups = binGroups.exit();
+    oldBinGroups
+      .selectAll("rect")
+      .style("fill", "#d73a49")
+      .transition(exitTransition)
+      .attr("y", dimensions.plotHeight)
+      .attr("height", 0);
+    oldBinGroups
+      .selectAll("text")
+      .transition(exitTransition)
+      .attr("y", dimensions.plotHeight);
+    oldBinGroups.transition(exitTransition).remove();
+
+    const newBinGroups = binGroups.enter().append("g").attr("class", "bin");
+
+    newBinGroups
+      .append("rect")
+      .attr("height", 0)
+      .attr("x", (d) => xScale(d.x0 + barPadding))
+      .attr("y", dimensions.plotHeight)
+      .attr("width", (d) =>
+        d3.max([0, xScale(d.x1) - xScale(d.x0) - barPadding])
+      )
+      .style("fill", "#79b8ff");
+    newBinGroups
+      .append("text")
+      .attr("x", (d) => xScale(d.x0) + barPadding)
+      .attr("y", dimensions.plotHeight);
+
+    binGroups = newBinGroups.merge(binGroups);
+
+    const bars = binGroups
+      .select("rect")
+      .transition(updateTransition)
+      .attr("x", (d) => xScale(d.x0) + barPadding / 2)
+      .attr("y", (d) => yScale(yAccessor(d)))
+      .attr("width", (d) =>
+        d3.max([0, xScale(d.x1) - xScale(d.x0) - barPadding])
+      )
+      .attr("height", (d) => dimensions.plotHeight - yScale(yAccessor(d)))
+      .transition()
+      .style("fill", "#0366d6");
+
+    const barLabels = binGroups
+      .select("text")
+      .transition(updateTransition)
+      .attr("x", (d) => xScale(d.x0) + (xScale(d.x1) - xScale(d.x0)) / 2)
+      .attr("y", (d) => yScale(yAccessor(d)) - 5)
+      .text((d) => yAccessor(d) || "")
+      .style("text-anchor", "middle")
+      .style("font-size", "0.7rem");
+
+    const mean = d3.mean(dataset, metricAccessor);
+    const meanLine = plot
+      .select(".meanLine")
+      .transition(updateTransition)
+      .attr("x1", xScale(mean))
+      .attr("x2", xScale(mean))
+      .attr("y1", -20)
+      .attr("y2", dimensions.plotHeight)
+      .attr("stroke", "#24292e")
+      .attr("stroke-dasharray", "5,5");
+
+    const meanLabel = plot
+      .select(".meanLabel")
+      .transition(updateTransition)
+      .attr("x", xScale(mean))
+      .attr("y", -25)
+      .text(`Avg (${mean.toFixed(0)})`)
+      .attr("text-anchor", "middle")
+      .style("font-weight", "600");
+
+    // plot axis
+    plot
+      .append("g")
+      .attr("class", "x-axis")
+      .style("transform", `translateY(${dimensions.plotHeight}px)`)
+      .append("text")
+      .attr("class", "x-axis-label")
+      .attr("x", dimensions.plotWidth / 2)
+      .attr("y", dimensions.margin.bottom - 10)
+      .attr("fill", "#24292e");
+
+    const xAxisGenerator = d3.axisBottom().scale(xScale);
+    const xAxis = plot.select(".x-axis").call(xAxisGenerator);
+    const xAxisLabel = xAxis
+      .select(".x-axis-label")
+      .text(metric)
+      .style("font-size", "1.2rem");
+  };
+
+  detailsArea = document.getElementById("details");
+  console.log(detailsArea);
+  detailsArea.addEventListener("click", (e) => updateMainChart(e));
+
+  function updateMainChart(e) {
+    targetChart = e.target.closest("svg");
+    if (targetChart.nodeName == "svg") {
+      drawHistogram(targetChart.id);
+      window.scroll({
+        top: 0,
+        behavior: "smooth",
+      });
+    }
+  }
+  drawHistogram();
 }
 
-// ======= MULTIPLE METRIC DETAILS =======
+// ======= DETAILS =======
 
 async function histograms() {
   // access data
   const dataset = await d3.csv("../data/fifa19/data.csv");
   const yAccessor = (d) => d.length;
-  console.table(dataset[0]);
 
   // assign chart dimensions
   const width = 400;
@@ -142,14 +202,16 @@ async function histograms() {
   dimensions.plotHeight =
     dimensions.height - dimensions.margin.top - dimensions.margin.bottom;
 
+  // ======= DRAW DETAILS HISTOGRAMS =======
+
   function drawHistogram(metric) {
-    console.log(metric);
     const metricAccessor = (d) => parseFloat(d[metric]) || 0;
 
     // draw chart and plot area
     const chart = d3
       .select("#details")
       .append("svg")
+      .attr("id", metric)
       .attr("width", dimensions.width)
       .attr("height", dimensions.height);
 
@@ -203,7 +265,6 @@ async function histograms() {
       .style("font-size", "0.7rem");
 
     const mean = d3.mean(dataset, metricAccessor);
-    console.log(mean);
     const meanLine = plot
       .append("line")
       .attr("x1", xScale(mean))
@@ -260,4 +321,4 @@ async function histograms() {
 }
 
 histograms();
-mainHistogram();
+mainChart();
