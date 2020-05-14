@@ -7,17 +7,22 @@
       href="https://unpkg.com/@primer/css/dist/primer.css"
       rel="stylesheet"
     />
+    <link href="./style.css" rel="stylesheet" />
     <title>FIFA19 Rankings</title>
   </head>
   <body>
     <div class="Header">
       <span class="Header-item">FIFA 19 Player Ratings</span>
     </div>
-    <div class="container-xl mx-auto">
+    <div class="container-xl">
       <div class="Subhead mt-5">
         Player Distribution by Rating
       </div>
-      <div id="main" class="d-flex flex-justify-center"></div>
+      <div id="main" class="d-flex flex-justify-center">
+        <div id="tooltip" class="tooltip">
+          Players <span id="playerCount"></span>
+        </div>
+      </div>
       <div class="Subhead mt-5">
         Player Distribution by Rating (All Metrics)
       </div>

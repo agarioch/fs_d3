@@ -1,7 +1,6 @@
 async function mainChart(metric = "Overall") {
   // access data
   const dataset = await d3.csv("../data/fifa19/data.csv");
-  console.table(dataset[1]);
 
   // assign chart dimensions
   const width = 800;
@@ -87,13 +86,13 @@ async function mainChart(metric = "Overall") {
 
     newBinGroups
       .append("rect")
+      .attr("class", "rect")
       .attr("height", 0)
       .attr("x", (d) => xScale(d.x0 + barPadding))
       .attr("y", dimensions.plotHeight)
       .attr("width", (d) =>
         d3.max([0, xScale(d.x1) - xScale(d.x0) - barPadding])
-      )
-      .style("fill", "#79b8ff");
+      );
     newBinGroups
       .append("text")
       .attr("x", (d) => xScale(d.x0) + barPadding)
@@ -109,9 +108,7 @@ async function mainChart(metric = "Overall") {
       .attr("width", (d) =>
         d3.max([0, xScale(d.x1) - xScale(d.x0) - barPadding])
       )
-      .attr("height", (d) => dimensions.plotHeight - yScale(yAccessor(d)))
-      .transition()
-      .style("fill", "#0366d6");
+      .attr("height", (d) => dimensions.plotHeight - yScale(yAccessor(d)));
 
     const barLabels = binGroups
       .select("text")
@@ -159,10 +156,35 @@ async function mainChart(metric = "Overall") {
       .select(".x-axis-label")
       .text(metric)
       .style("font-size", "1.2rem");
+
+    const tooltip = d3.select("#tooltip");
+    const numFormat = d3.format(",.0f");
+
+    binGroups
+      .select("rect")
+      .on("mouseenter", onMouseEnter)
+      .on("mouseleave", onMouseLeave);
+
+    function onMouseEnter(data) {
+      tooltip.select("#playerCount").text(numFormat(data.length));
+      const x =
+        dimensions.margin.left +
+        xScale(data.x0) +
+        (xScale(data.x1) - xScale(data.x0)) / 2;
+      const y = yScale(yAccessor(data));
+      tooltip
+        .style(
+          "transform",
+          `translate(calc(-50% + ${x}px), calc(-100% + ${y}px))`
+        )
+        .style("opacity", 1);
+    }
+    function onMouseLeave(data) {
+      tooltip.style("opacity", 0);
+    }
   };
 
   detailsArea = document.getElementById("details");
-  console.log(detailsArea);
   detailsArea.addEventListener("click", (e) => updateMainChart(e));
 
   function updateMainChart(e) {
